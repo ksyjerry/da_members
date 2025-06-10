@@ -1,5 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 
+// 현재 도메인 가져오기 헬퍼 함수
+const getCurrentDomain = () => {
+  if (typeof window === 'undefined') {
+    // 서버 사이드에서는 프로덕션 URL 사용
+    return 'https://da-members.vercel.app/';
+  }
+  
+  // 클라이언트 사이드에서는 현재 origin 사용
+  return window.location.origin + '/';
+};
+
 // Supabase 설정 (환경변수 또는 직접 설정)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njopxuzaishmnyvwzhlk.supabase.co'
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qb3B4dXphaXNobW55dnd6aGxrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1MzU5MjEsImV4cCI6MjA2NTExMTkyMX0.FItE7M6LTTyRmFqUh7JnzKlTO-zzF2zydMovP0jokfI'
@@ -240,7 +251,8 @@ export const supabaseApi = {
         email,
         password,
         options: {
-          data: metadata || {}
+          data: metadata || {},
+          emailRedirectTo: getCurrentDomain()
         }
       })
 
@@ -283,6 +295,25 @@ export const supabaseApi = {
 
       if (error) {
         console.error('❌ 로그아웃 오류:', error)
+        return { error: error.message }
+      }
+
+      return { error: null }
+    } catch (error) {
+      console.error('❌ API 오류:', error)
+      return { error: error instanceof Error ? error.message : '알 수 없는 오류' }
+    }
+  },
+
+  // 비밀번호 재설정 이메일 발송
+  async resetPassword(email: string): Promise<{ error: string | null }> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: getCurrentDomain() + 'reset-password'
+      })
+
+      if (error) {
+        console.error('❌ 비밀번호 재설정 오류:', error)
         return { error: error.message }
       }
 

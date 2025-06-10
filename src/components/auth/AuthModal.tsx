@@ -19,6 +19,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -73,6 +74,32 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         onSuccess();
         onClose();
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!formData.email) {
+      setError('이메일을 먼저 입력해주세요.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabaseApi.resetPassword(formData.email);
+
+      if (error) {
+        setError(error);
+        return;
+      }
+
+      alert('비밀번호 재설정 이메일이 발송되었습니다. 이메일을 확인해주세요.');
+      setShowForgotPassword(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -191,6 +218,16 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               >
                 {loading ? '처리 중...' : (mode === 'signin' ? '로그인' : '회원가입')}
               </button>
+
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="w-full text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                >
+                  비밀번호를 잊으셨나요?
+                </button>
+              )}
 
               <button
                 type="button"
