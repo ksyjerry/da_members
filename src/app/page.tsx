@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabaseApi, Member, Post, User, testConnection, supabase } from '@/lib/supabase';
 import { formatDate } from '@/data/posts';
 import AuthModal from '@/components/auth/AuthModal';
@@ -36,7 +36,6 @@ export default function Home() {
     author: ''
   });
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [postLoading, setPostLoading] = useState(false);
   const [showMyPostsOnly, setShowMyPostsOnly] = useState(false);
 
   useEffect(() => {
@@ -77,7 +76,41 @@ export default function Home() {
     }
   };
 
-  const loadData = async () => {
+  const fetchMembers = useCallback(async () => {
+    try {
+      setError(null);
+
+      const { data, error } = await supabaseApi.getMembers();
+      
+      if (error) {
+        throw new Error(error);
+      }
+
+      setMembers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
+      console.error('Supabase 조회 오류:', err);
+    }
+  }, []);
+
+  const fetchPosts = useCallback(async () => {
+    try {
+      setError(null);
+
+      const { data, error } = await supabaseApi.getPosts();
+      
+      if (error) {
+        throw new Error(error);
+      }
+
+      setPosts(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '게시글 로드 중 오류가 발생했습니다');
+      console.error('게시글 조회 오류:', err);
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
     console.log('🔄 데이터 로드 시작...');
     setLoading(true);
     try {
@@ -92,7 +125,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchMembers, fetchPosts]);
 
   const handleAuthSuccess = () => {
     console.log('✅ 인증 성공!');
@@ -119,27 +152,6 @@ export default function Home() {
     
     const currentUserName = getCurrentUserName();
     return posts.filter(post => post.author === currentUserName);
-  };
-
-  const fetchMembers = async () => {
-    try {
-      setError(null);
-
-      const { data, error } = await supabaseApi.getMembers();
-      
-      if (error) {
-        throw new Error(error);
-      }
-
-      setMembers(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
-      console.error('Supabase 조회 오류:', err);
-    }
-  };
-
-  const refreshMembers = () => {
-    fetchMembers();
   };
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -185,23 +197,6 @@ export default function Home() {
   };
 
   // 게시판 관련 함수들
-  const fetchPosts = async () => {
-    try {
-      setError(null);
-
-      const { data, error } = await supabaseApi.getPosts();
-      
-      if (error) {
-        throw new Error(error);
-      }
-
-      setPosts(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '게시글 로드 중 오류가 발생했습니다');
-      console.error('게시글 조회 오류:', err);
-    }
-  };
-
   const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -211,7 +206,6 @@ export default function Home() {
     }
 
     try {
-      setPostLoading(true);
       setError(null);
 
       const { error } = await supabaseApi.addPost({
@@ -233,8 +227,6 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : '게시글 작성 중 오류가 발생했습니다');
       console.error('게시글 작성 오류:', err);
-    } finally {
-      setPostLoading(false);
     }
   };
 

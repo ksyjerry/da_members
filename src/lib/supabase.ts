@@ -234,7 +234,7 @@ export const supabaseApi = {
 
   // Auth 관련 API 함수들
   // 이메일로 회원가입
-  async signUp(email: string, password: string, metadata?: { name?: string }): Promise<{ data: any; error: string | null }> {
+  async signUp(email: string, password: string, metadata?: { name?: string }): Promise<{ data: User | null; error: string | null }> {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -249,7 +249,7 @@ export const supabaseApi = {
         return { data: null, error: error.message }
       }
 
-      return { data, error: null }
+      return { data: data.user as User | null, error: null }
     } catch (error) {
       console.error('❌ API 오류:', error)
       return { data: null, error: error instanceof Error ? error.message : '알 수 없는 오류' }
@@ -257,7 +257,7 @@ export const supabaseApi = {
   },
 
   // 이메일로 로그인
-  async signIn(email: string, password: string): Promise<{ data: any; error: string | null }> {
+  async signIn(email: string, password: string): Promise<{ data: User | null; error: string | null }> {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -269,7 +269,7 @@ export const supabaseApi = {
         return { data: null, error: error.message }
       }
 
-      return { data, error: null }
+      return { data: data.user as User | null, error: null }
     } catch (error) {
       console.error('❌ API 오류:', error)
       return { data: null, error: error instanceof Error ? error.message : '알 수 없는 오류' }
