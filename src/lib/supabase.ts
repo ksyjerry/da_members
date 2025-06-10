@@ -11,7 +11,9 @@ console.log('Key 설정됨:', !!supabaseAnonKey)
 // Supabase 클라이언트 생성
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   }
 })
 
@@ -52,6 +54,23 @@ export interface Member {
   name: string
   grade: string
   gender: string
+}
+
+export interface Post {
+  id: number
+  title: string
+  content: string
+  author: string
+  created_at: string
+  views: number
+}
+
+export interface User {
+  id: string
+  email?: string
+  user_metadata?: {
+    name?: string
+  }
 }
 
 // Supabase 클라이언트를 사용한 API 함수들
@@ -124,6 +143,170 @@ export const supabaseApi = {
     } catch (error) {
       console.error('API 오류:', error)
       return { data: [], error: error instanceof Error ? error.message : '알 수 없는 오류' }
+    }
+  },
+
+  // 게시판 관련 API 함수들
+  // 모든 게시글 조회
+  async getPosts(): Promise<{ data: Post[]; error: string | null }> {
+    try {
+      console.log('🔍 게시글 조회 시작...')
+      
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      console.log('📊 게시글 조회 결과:', { data, error })
+
+      if (error) {
+        console.error('❌ Supabase 오류:', error)
+        console.error('오류 세부사항:', error.message, error.details, error.hint)
+        return { data: [], error: error.message }
+      }
+
+      console.log(`✅ 성공적으로 ${data?.length || 0}개의 게시글을 가져왔습니다`)
+      if (data && data.length > 0) {
+        console.log('첫 번째 게시글:', data[0])
+      }
+
+      return { data: data || [], error: null }
+    } catch (error) {
+      console.error('❌ API 오류:', error)
+      return { data: [], error: error instanceof Error ? error.message : '알 수 없는 오류' }
+    }
+  },
+
+  // 새 게시글 추가
+  async addPost(post: Omit<Post, 'id' | 'created_at' | 'views'>): Promise<{ data: Post | null; error: string | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .insert([{ ...post, views: 0 }])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ Supabase 게시글 삽입 오류:', error)
+        return { data: null, error: error.message }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('❌ API 오류:', error)
+      return { data: null, error: error instanceof Error ? error.message : '알 수 없는 오류' }
+    }
+  },
+
+  // 게시글 조회수 증가
+  async incrementPostViews(postId: number): Promise<{ data: Post | null; error: string | null }> {
+    try {
+      // 먼저 현재 조회수를 가져온 다음 증가시키기
+      const { data: currentPost, error: fetchError } = await supabase
+        .from('posts')
+        .select('views')
+        .eq('id', postId)
+        .single()
+
+      if (fetchError) {
+        console.error('❌ 현재 조회수 조회 오류:', fetchError)
+        return { data: null, error: fetchError.message }
+      }
+
+      const { data, error } = await supabase
+        .from('posts')
+        .update({ views: (currentPost.views || 0) + 1 })
+        .eq('id', postId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ Supabase 조회수 증가 오류:', error)
+        return { data: null, error: error.message }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('❌ API 오류:', error)
+      return { data: null, error: error instanceof Error ? error.message : '알 수 없는 오류' }
+    }
+  },
+
+  // Auth 관련 API 함수들
+  // 이메일로 회원가입
+  async signUp(email: string, password: string, metadata?: { name?: string }): Promise<{ data: any; error: string | null }> {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata || {}
+        }
+      })
+
+      if (error) {
+        console.error('❌ 회원가입 오류:', error)
+        return { data: null, error: error.message }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('❌ API 오류:', error)
+      return { data: null, error: error instanceof Error ? error.message : '알 수 없는 오류' }
+    }
+  },
+
+  // 이메일로 로그인
+  async signIn(email: string, password: string): Promise<{ data: any; error: string | null }> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (error) {
+        console.error('❌ 로그인 오류:', error)
+        return { data: null, error: error.message }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('❌ API 오류:', error)
+      return { data: null, error: error instanceof Error ? error.message : '알 수 없는 오류' }
+    }
+  },
+
+  // 로그아웃
+  async signOut(): Promise<{ error: string | null }> {
+    try {
+      const { error } = await supabase.auth.signOut()
+
+      if (error) {
+        console.error('❌ 로그아웃 오류:', error)
+        return { error: error.message }
+      }
+
+      return { error: null }
+    } catch (error) {
+      console.error('❌ API 오류:', error)
+      return { error: error instanceof Error ? error.message : '알 수 없는 오류' }
+    }
+  },
+
+  // 현재 사용자 가져오기
+  async getCurrentUser(): Promise<{ data: User | null; error: string | null }> {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser()
+
+      if (error) {
+        console.error('❌ 사용자 정보 조회 오류:', error)
+        return { data: null, error: error.message }
+      }
+
+      return { data: user, error: null }
+    } catch (error) {
+      console.error('❌ API 오류:', error)
+      return { data: null, error: error instanceof Error ? error.message : '알 수 없는 오류' }
     }
   }
 } 
