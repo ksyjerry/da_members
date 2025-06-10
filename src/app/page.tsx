@@ -58,7 +58,7 @@ export default function Home() {
       setIsSubmitting(true);
       setError(null);
 
-      const { data, error } = await supabaseApi.addMember(formData);
+      const { error } = await supabaseApi.addMember(formData);
       
       if (error) {
         throw new Error(error);
